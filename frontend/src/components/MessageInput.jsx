@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
-import { Image, Send, X } from "lucide-react";
+import { Image as ImageIcon, Send, X } from "lucide-react"; // Renamed Image
 import toast from "react-hot-toast";
 
 const MessageInput = () => {
@@ -9,25 +9,57 @@ const MessageInput = () => {
   const fileInputRef = useRef(null);
   const { sendMessage } = useChatStore();
 
+  // Function to compress and preview image
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
+    if (!file || !file.type.startsWith("image/")) {
       toast.error("Please select an image file");
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
     reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image(); // Use window.Image() explicitly
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let width = img.width;
+        let height = img.height;
+
+        // Resize if necessary
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        // Draw resized image on canvas
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to compressed JPEG format (70% quality)
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        setImagePreview(compressedDataUrl);
+      };
+    };
   };
 
+  // Remove image preview
   const removeImage = () => {
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Send message with text and image
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
@@ -38,7 +70,7 @@ const MessageInput = () => {
         image: imagePreview,
       });
 
-      // Clear form
+      // Clear inputs
       setText("");
       setImagePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -49,6 +81,7 @@ const MessageInput = () => {
 
   return (
     <div className="p-4 w-full">
+      {/* Image Preview */}
       {imagePreview && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative">
@@ -69,8 +102,10 @@ const MessageInput = () => {
         </div>
       )}
 
+      {/* Message Input Form */}
       <form onSubmit={handleSendMessage} className="flex items-center gap-2">
         <div className="flex-1 flex gap-2">
+          {/* Text Input */}
           <input
             type="text"
             className="w-full input input-bordered rounded-lg input-sm sm:input-md"
@@ -78,6 +113,8 @@ const MessageInput = () => {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
+
+          {/* Hidden File Input */}
           <input
             type="file"
             accept="image/*"
@@ -86,15 +123,18 @@ const MessageInput = () => {
             onChange={handleImageChange}
           />
 
+          {/* Image Upload Button */}
           <button
             type="button"
             className={`hidden sm:flex btn btn-circle
                      ${imagePreview ? "text-emerald-500" : "text-zinc-400"}`}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Image size={20} />
+            <ImageIcon size={20} /> {/* Use renamed ImageIcon */}
           </button>
         </div>
+
+        {/* Send Button */}
         <button
           type="submit"
           className="btn btn-sm btn-circle"
@@ -106,4 +146,5 @@ const MessageInput = () => {
     </div>
   );
 };
+
 export default MessageInput;
